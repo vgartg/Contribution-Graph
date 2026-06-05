@@ -1,0 +1,57 @@
+name: Activity Stats
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 10 * * 1'   # каждый понедельник в 13:00 МСК
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate stats
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          MONTH_START="$(date +%Y-%m-01)"
+
+          COMMITS_30=$(git log --since="30 days ago" --oneline | wc -l | tr -d ' ')
+          COMMITS_MONTH=$(git log --since="$MONTH_START" --oneline | wc -l | tr -d ' ')
+          ACTIVE_DAYS=$(git log --since="30 days ago" --format="%as" | sort -u | wc -l | tr -d ' ')
+
+          PRS_MONTH=$(gh pr list --state merged --limit 100 --json mergedAt \
+            | jq "[.[] | select(.mergedAt >= \"$MONTH_START\")] | length")
+
+          {
+            echo "## Activity Stats"
+            echo ""
+            echo "### Summary"
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Commits (last 30 days) | $COMMITS_30 |"
+            echo "| Commits (this month) | $COMMITS_MONTH |"
+            echo "| Active days (last 30 days) | $ACTIVE_DAYS |"
+            echo "| Merged PRs (this month) | $PRS_MONTH |"
+            echo ""
+            echo "### Commits by day (last 30 days)"
+            echo "| Date | Commits |"
+            echo "|------|---------|"
+            git log --since="30 days ago" --format="%as" \
+              | sort | uniq -c \
+              | awk '{print "| " $2 " | " $1 " |"}'
+            echo ""
+            echo "### Merged PRs (last 30 days)"
+            echo "| Title | Merged at |"
+            echo "|-------|-----------|"
+            gh pr list --state merged --limit 30 --json title,mergedAt \
+              | jq -r '.[] | "| \(.title) | \(.mergedAt[:10]) |"'
+          } >> "$GITHUB_STEP_SUMMARY"
