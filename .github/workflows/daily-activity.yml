@@ -2,7 +2,7 @@ name: Daily Activity
 
 on:
   schedule:
-    - cron: '0 9 * * *'   # 12:00 по Москве
+    - cron: '0 9 * * *'
   workflow_dispatch:
 
 permissions:
@@ -42,9 +42,6 @@ jobs:
             "Routine update"
           )
 
-          # 0-1 (20%) — ничего
-          # 2-4 (30%) — ветка + PR + мерж
-          # 5-9 (50%) — прямые коммиты в main
           ROLL=$((RANDOM % 10))
 
           make_commits() {
@@ -57,25 +54,47 @@ jobs:
             done
           }
 
+          RESULT_TYPE=""
+          RESULT_DETAIL=""
+
           if [ $ROLL -le 1 ]; then
-            echo "Today: no activity"
+            RESULT_TYPE="none"
+            RESULT_DETAIL="No activity today"
 
           elif [ $ROLL -le 4 ]; then
-            echo "Today: PR flow"
+            RESULT_TYPE="pr"
             BRANCH="update/$(date +%Y%m%d)-$RANDOM"
             git checkout -b "$BRANCH"
-
             N=$((RANDOM % 3 + 1))
             make_commits $N
             git push origin "$BRANCH"
-
             TITLE="${PR_TITLES[$((RANDOM % ${#PR_TITLES[@]}))]}"
             gh pr create --title "$TITLE" --body "" --base main --head "$BRANCH"
             gh pr merge --squash --delete-branch --yes
+            RESULT_DETAIL="PR «$TITLE» — $N commit(s), squash merged"
 
           else
-            echo "Today: direct commits"
+            RESULT_TYPE="commits"
             N=$((RANDOM % 7 + 1))
             make_commits $N
             git push
+            RESULT_DETAIL="$N direct commit(s) to main"
           fi
+
+          # Job summary
+          {
+            echo "## Daily Activity — $(date -u +%Y-%m-%d)"
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Roll | $ROLL / 9 |"
+            if [ "$RESULT_TYPE" = "none" ]; then
+              echo "| Result | ⬜ No activity |"
+            elif [ "$RESULT_TYPE" = "pr" ]; then
+              echo "| Result | 🔀 PR flow |"
+              echo "| Detail | $RESULT_DETAIL |"
+            else
+              echo "| Result | 🟩 Direct commits |"
+              echo "| Detail | $RESULT_DETAIL |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
