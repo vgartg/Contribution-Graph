@@ -1,0 +1,43 @@
+name: Daily Activity
+
+on:
+  schedule:
+    - cron: '0 9 * * *'   # 12:00 по Москве каждый день
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Random commits
+        run: |
+          git config user.email "vgartg@gmail.com"
+          git config user.name "vgartg"
+
+          N=$((RANDOM % 8))
+          echo "Today: $N commit(s)"
+
+          MESSAGES=(
+            "chore: update"
+            "chore: minor fix"
+            "chore: cleanup"
+            "chore: refactor"
+            "chore: improve"
+            "chore: adjust"
+            "chore: tweak"
+          )
+
+          for i in $(seq 1 $N); do
+            echo "$(date -u +%Y-%m-%dT%H:%M:%S) [$RANDOM]" >> .log
+            git add .log
+            MSG="${MESSAGES[$((RANDOM % ${#MESSAGES[@]}))]}"
+            git commit -m "$MSG"
+          done
+
+          [ $N -gt 0 ] && git push
