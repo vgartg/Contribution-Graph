@@ -1,0 +1,62 @@
+name: Pair Extraordinaire Farmer
+
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: 'Number of co-authored PRs to create'
+        required: false
+        default: '9'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  farm:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create co-authored PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.email "vgartg@gmail.com"
+          git config user.name "vgartg"
+
+          COUNT=${{ github.event.inputs.count }}
+
+          for i in $(seq 1 $COUNT); do
+            BRANCH="pair/batch-$(date +%Y%m%d)-$i-$RANDOM"
+            git checkout -b "$BRANCH"
+
+            echo "$(date -u +%Y-%m-%dT%H:%M:%S) [pair-$i]" >> .log
+            git add .log
+
+            git commit -m "chore: routine update #$i
+
+Co-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+
+            git push origin "$BRANCH"
+
+            gh pr create \
+              --title "Routine update #$i" \
+              --body "" \
+              --base main \
+              --head "$BRANCH"
+
+            gh pr merge --squash --delete-branch --yes
+
+            git checkout main
+            git pull origin main
+
+            sleep 2
+          done
+
+          echo "## Pair Extraordinaire Farmer" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Created and merged **$COUNT** co-authored PRs." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Co-author: \`github-actions[bot]\`" >> "$GITHUB_STEP_SUMMARY"
