@@ -22,27 +22,27 @@ jobs:
       - name: Create co-authored PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COUNT: ${{ inputs.count }}
         run: |
           git config user.email "vgartg@gmail.com"
           git config user.name "vgartg"
 
-          COUNT=${{ github.event.inputs.count }}
+          CO_AUTHOR="Co-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
 
-          for i in $(seq 1 $COUNT); do
-            BRANCH="pair/batch-$(date +%Y%m%d)-$i-$RANDOM"
+          for i in $(seq 1 "$COUNT"); do
+            BRANCH="pair/batch-$(date +%Y%m%d)-${i}-${RANDOM}"
             git checkout -b "$BRANCH"
 
-            echo "$(date -u +%Y-%m-%dT%H:%M:%S) [pair-$i]" >> .log
+            echo "$(date -u +%Y-%m-%dT%H:%M:%S) [pair-${i}]" >> .log
             git add .log
 
-            git commit -m "chore: routine update #$i
-
-Co-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+            MSG="$(printf 'chore: routine update #%s\n\n%s' "$i" "$CO_AUTHOR")"
+            git commit -m "$MSG"
 
             git push origin "$BRANCH"
 
             gh pr create \
-              --title "Routine update #$i" \
+              --title "Routine update #${i}" \
               --body "" \
               --base main \
               --head "$BRANCH"
@@ -56,7 +56,4 @@ Co-authored-by: github-actions[bot] <41898282+github-actions[bot]@users.noreply.
           done
 
           echo "## Pair Extraordinaire Farmer" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Created and merged **$COUNT** co-authored PRs." >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Co-author: \`github-actions[bot]\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Created and merged **${COUNT}** co-authored PRs." >> "$GITHUB_STEP_SUMMARY"
