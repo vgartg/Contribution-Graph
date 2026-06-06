@@ -78,6 +78,7 @@ jobs:
             else
               RESULT_TYPE="commits"
               make_commits $N
+              git pull --rebase origin main
               git push
               RESULT_DETAIL="$N direct commit(s) to main"
             fi
