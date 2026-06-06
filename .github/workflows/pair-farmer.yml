@@ -47,7 +47,7 @@ jobs:
               --base main \
               --head "$BRANCH"
 
-            gh pr merge --squash --delete-branch
+            gh pr merge --squash --delete-branch --body "$CO_AUTHOR"
 
             git checkout main
             git pull origin main
