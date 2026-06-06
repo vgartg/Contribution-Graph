@@ -42,8 +42,6 @@ jobs:
             "Routine update"
           )
 
-          ROLL=$((RANDOM % 10))
-
           make_commits() {
             local N=$1
             for i in $(seq 1 $N); do
@@ -54,31 +52,35 @@ jobs:
             done
           }
 
+          # 25% — no activity; 75% split equally across 1..7 commits
+          SKIP=$((RANDOM % 4))
           RESULT_TYPE=""
           RESULT_DETAIL=""
+          N=0
 
-          if [ $ROLL -le 1 ]; then
+          if [ $SKIP -eq 0 ]; then
             RESULT_TYPE="none"
             RESULT_DETAIL="No activity today"
-
-          elif [ $ROLL -le 4 ]; then
-            RESULT_TYPE="pr"
-            BRANCH="update/$(date +%Y%m%d)-$RANDOM"
-            git checkout -b "$BRANCH"
-            N=$((RANDOM % 3 + 1))
-            make_commits $N
-            git push origin "$BRANCH"
-            TITLE="${PR_TITLES[$((RANDOM % ${#PR_TITLES[@]}))]}"
-            gh pr create --title "$TITLE" --body "" --base main --head "$BRANCH"
-            gh pr merge --squash --delete-branch --yes
-            RESULT_DETAIL="PR «$TITLE» — $N commit(s), squash merged"
-
           else
-            RESULT_TYPE="commits"
             N=$((RANDOM % 7 + 1))
-            make_commits $N
-            git push
-            RESULT_DETAIL="$N direct commit(s) to main"
+            ROLL=$((RANDOM % 10))
+
+            if [ $ROLL -le 3 ]; then
+              RESULT_TYPE="pr"
+              BRANCH="update/$(date +%Y%m%d)-$RANDOM"
+              git checkout -b "$BRANCH"
+              make_commits $N
+              git push origin "$BRANCH"
+              TITLE="${PR_TITLES[$((RANDOM % ${#PR_TITLES[@]}))]}"
+              PR_URL=$(gh pr create --title "$TITLE" --body "" --base main --head "$BRANCH")
+              gh pr merge --squash --delete-branch "$PR_URL"
+              RESULT_DETAIL="PR «$TITLE» — $N commit(s), squash merged"
+            else
+              RESULT_TYPE="commits"
+              make_commits $N
+              git push
+              RESULT_DETAIL="$N direct commit(s) to main"
+            fi
           fi
 
           # Job summary
@@ -87,7 +89,8 @@ jobs:
             echo ""
             echo "| Field | Value |"
             echo "|-------|-------|"
-            echo "| Roll | $ROLL / 9 |"
+            echo "| Skip roll | $SKIP / 3 (0 = skip) |"
+            echo "| Commits | $N |"
             if [ "$RESULT_TYPE" = "none" ]; then
               echo "| Result | ⬜ No activity |"
             elif [ "$RESULT_TYPE" = "pr" ]; then
